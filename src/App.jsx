@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { DollarSign, Users, FileText, TrendingUp, Plus, Search, Filter, X, Check, Clock, AlertCircle } from 'lucide-react';
+import { DollarSign, Users, FileText, TrendingUp, Plus, Search, Filter, X, Check, Clock, AlertCircle, MapPin, Navigation } from 'lucide-react';
 
 const InvoiceManagerApp = () => {
   const [currentView, setCurrentView] = useState('dashboard');
@@ -46,12 +46,52 @@ const InvoiceManagerApp = () => {
   const openModal = (type) => {
     setModalType(type);
     setFormData({});
+    setSelectedLocation(null);
     setShowModal(true);
+  };
+
+  const openMapPicker = () => {
+    setShowMapModal(true);
+  };
+
+  const handleMapClick = (lat, lng) => {
+    setSelectedLocation({ lat, lng });
+    // Reverse geocoding to get address
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+      .then(res => res.json())
+      .then(data => {
+        const address = data.display_name;
+        setFormData({...formData, 
+          address: address,
+          latitude: lat,
+          longitude: lng
+        });
+      })
+      .catch(err => console.error('Geocoding error:', err));
+  };
+
+  const searchLocation = (query) => {
+    if (!query) return;
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=us`)
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.length > 0) {
+          const { lat, lon } = data[0];
+          setMapCenter([parseFloat(lat), parseFloat(lon)]);
+          handleMapClick(parseFloat(lat), parseFloat(lon));
+        }
+      })
+      .catch(err => console.error('Search error:', err));
   };
 
   const handleSubmit = () => {
     if (modalType === 'client') {
-      setClients([...clients, { ...formData, id: Date.now() }]);
+      setClients([...clients, { 
+        ...formData, 
+        id: Date.now(),
+        latitude: selectedLocation?.lat || null,
+        longitude: selectedLocation?.lng || null
+      }]);
     } else if (modalType === 'invoice') {
       const newInvoice = {
         ...formData,
@@ -293,12 +333,20 @@ const InvoiceManagerApp = () => {
                     <div className="bg-blue-100 p-3 rounded-full">
                       <Users className="w-6 h-6 text-blue-600" />
                     </div>
+                    {client.latitude && client.longitude && (
+                      <span className="text-green-600 text-xs font-medium">📍 Located</span>
+                    )}
                   </div>
                   <h3 className="text-lg font-semibold mb-2">{client.name}</h3>
                   <div className="space-y-1 text-sm text-gray-600">
                     <p>📧 {client.email}</p>
                     <p>📱 {client.phone}</p>
                     <p>📍 {client.address}</p>
+                    {client.latitude && client.longitude && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Coordinates: {client.latitude.toFixed(4)}, {client.longitude.toFixed(4)}
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
@@ -349,6 +397,69 @@ const InvoiceManagerApp = () => {
         )}
       </div>
 
+      {/* Map Modal */}
+      {showMapModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex justify-between items-center p-6 border-b">
+              <h3 className="text-xl font-bold">Select Client Location</h3>
+              <button onClick={() => setShowMapModal(false)} className="text-gray-400 hover:text-gray-600">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="p-4 border-b">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Search address in USA..."
+                  className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') {
+                      searchLocation(e.target.value);
+                    }
+                  }}
+                />
+                <button
+                  onClick={(e) => {
+                    const input = e.target.previousSibling;
+                    searchLocation(input.value);
+                  }}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+                >
+                  <Search className="w-5 h-5" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 mt-2">Click on the map to select a location or search for an address</p>
+            </div>
+
+            <div className="flex-1 relative" style={{ minHeight: '400px' }}>
+              <MapComponent 
+                center={mapCenter} 
+                selectedLocation={selectedLocation}
+                onMapClick={handleMapClick}
+              />
+            </div>
+
+            <div className="flex justify-end gap-3 p-6 border-t bg-gray-50">
+              <button
+                onClick={() => setShowMapModal(false)}
+                className="px-4 py-2 border rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => setShowMapModal(false)}
+                disabled={!selectedLocation}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                Confirm Location
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -383,11 +494,30 @@ const InvoiceManagerApp = () => {
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     onChange={(e) => setFormData({...formData, phone: e.target.value})}
                   />
-                  <input
-                    placeholder="Address"
-                    className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, address: e.target.value})}
-                  />
+                  
+                  <div className="space-y-2">
+                    <label className="text-sm font-medium text-gray-700">Location</label>
+                    <div className="flex gap-2">
+                      <input
+                        placeholder="Address or search location"
+                        value={formData.address || ''}
+                        className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                      />
+                      <button
+                        type="button"
+                        onClick={openMapPicker}
+                        className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors whitespace-nowrap"
+                      >
+                        📍 Pick on Map
+                      </button>
+                    </div>
+                    {selectedLocation && (
+                      <p className="text-xs text-green-600">
+                        ✓ Location selected: {selectedLocation.lat.toFixed(4)}, {selectedLocation.lng.toFixed(4)}
+                      </p>
+                    )}
+                  </div>
                 </>
               )}
 
