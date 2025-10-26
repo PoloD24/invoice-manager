@@ -49,7 +49,7 @@ const MapComponent = ({ center, selectedLocation, onMapClick, isVisible }) => {
     <MapContainer
       center={center}
       zoom={10}
-      style={{ height: '100%', width: '100%', min-height:400px }}
+      style={{ height: '100%', width: '100%'}}
       scrollWheelZoom={true}
     >
       <TileLayer
