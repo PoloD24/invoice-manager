@@ -582,7 +582,7 @@ const InvoiceManagerApp = () => {
               </p>
             </div>
 
-            <div className="flex-1 relative min-h-[400px] w-full">
+            <div className="flex-1 relative  w-full" style= {{ height:'400px', position:'relative'}} >
               <MapComponent
                 center={mapCenter}
                 selectedLocation={selectedLocation}
