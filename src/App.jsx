@@ -16,10 +16,10 @@ import {
 } from 'lucide-react';
 
 // --- Mapa con React-Leaflet ---
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMap, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Hook personalizado para detectar clics en el mapa
+// Hook para detectar clics en el mapa
 function MapClickHandler({ onMapClick }) {
   useMapEvents({
     click(e) {
@@ -29,8 +29,22 @@ function MapClickHandler({ onMapClick }) {
   return null;
 }
 
+// Hook para forzar el redimensionamiento del mapa
+function MapResizer({ when }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (when) {
+      const id = setTimeout(() => {
+        map.invalidateSize();
+      }, 100);
+      return () => clearTimeout(id);
+    }
+  }, [when, map]);
+  return null;
+}
+
 // Componente reutilizable del mapa
-const MapComponent = ({ center, selectedLocation, onMapClick }) => {
+const MapComponent = ({ center, selectedLocation, onMapClick, isVisible }) => {
   return (
     <MapContainer
       center={center}
@@ -46,6 +60,7 @@ const MapComponent = ({ center, selectedLocation, onMapClick }) => {
         <Marker position={[selectedLocation.lat, selectedLocation.lng]} />
       )}
       <MapClickHandler onMapClick={onMapClick} />
+      <MapResizer when={isVisible} />
     </MapContainer>
   );
 };
@@ -150,7 +165,6 @@ const InvoiceManagerApp = () => {
   };
 
   const openMapPicker = () => {
-    // Si ya hay una ubicación guardada, centrar el mapa ahí
     if (formData.latitude && formData.longitude) {
       setMapCenter([formData.latitude, formData.longitude]);
       setSelectedLocation({ lat: formData.latitude, lng: formData.longitude });
@@ -163,8 +177,11 @@ const InvoiceManagerApp = () => {
     setSelectedLocation(newLocation);
     setMapCenter([lat, lng]);
 
-    // Reverse geocoding
-    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
+    fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`, {
+      headers: {
+        'User-Agent': 'InvoiceManager/1.0 (your-email@example.com)',
+      },
+    })
       .then((res) => res.json())
       .then((data) => {
         const address = data.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
@@ -527,9 +544,9 @@ const InvoiceManagerApp = () => {
         )}
       </div>
 
-      {/* Map Modal */}
+      {/* Map Modal — AHORA CON z-[100] */}
       {showMapModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[100]">
           <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
             <div className="flex justify-between items-center p-6 border-b">
               <h3 className="text-xl font-bold">Select Client Location</h3>
@@ -565,11 +582,12 @@ const InvoiceManagerApp = () => {
               </p>
             </div>
 
-            <div className="flex-1 relative" style={{ minHeight: '400px' }}>
+            <div className="flex-1 relative min-h-[400px] w-full">
               <MapComponent
                 center={mapCenter}
                 selectedLocation={selectedLocation}
                 onMapClick={handleMapClick}
+                isVisible={showMapModal}
               />
             </div>
 
@@ -581,9 +599,7 @@ const InvoiceManagerApp = () => {
                 Cancel
               </button>
               <button
-                onClick={() => {
-                  setShowMapModal(false);
-                }}
+                onClick={() => setShowMapModal(false)}
                 disabled={!selectedLocation}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
