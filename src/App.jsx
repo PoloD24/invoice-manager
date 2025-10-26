@@ -1,6 +1,56 @@
-import React, { useState } from 'react';
-import { DollarSign, Users, FileText, TrendingUp, Plus, Search, Filter, X, Check, Clock, AlertCircle, MapPin, Navigation } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import {
+  DollarSign,
+  Users,
+  FileText,
+  TrendingUp,
+  Plus,
+  Search,
+  Filter,
+  X,
+  Check,
+  Clock,
+  AlertCircle,
+  MapPin,
+  Navigation,
+} from 'lucide-react';
 
+// --- Mapa con React-Leaflet ---
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Hook personalizado para detectar clics en el mapa
+function MapClickHandler({ onMapClick }) {
+  useMapEvents({
+    click(e) {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+}
+
+// Componente reutilizable del mapa
+const MapComponent = ({ center, selectedLocation, onMapClick }) => {
+  return (
+    <MapContainer
+      center={center}
+      zoom={10}
+      style={{ height: '100%', width: '100%' }}
+      scrollWheelZoom={true}
+    >
+      <TileLayer
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      />
+      {selectedLocation && (
+        <Marker position={[selectedLocation.lat, selectedLocation.lng]} />
+      )}
+      <MapClickHandler onMapClick={onMapClick} />
+    </MapContainer>
+  );
+};
+
+// --- Componente principal ---
 const InvoiceManagerApp = () => {
   const [currentView, setCurrentView] = useState('dashboard');
   const [showModal, setShowModal] = useState(false);
@@ -8,38 +58,87 @@ const InvoiceManagerApp = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
 
-  // Data states
+  // Datos
   const [clients, setClients] = useState([
-    { id: 1, name: 'ABC Company', email: 'contact@abc.com', phone: '(555) 123-4567', address: '123 Main Street, New York, NY 10001' },
-    { id: 2, name: 'XYZ Business', email: 'info@xyz.com', phone: '(555) 987-6543', address: '456 Oak Avenue, Los Angeles, CA 90001' }
+    {
+      id: 1,
+      name: 'ABC Company',
+      email: 'contact@abc.com',
+      phone: '(555) 123-4567',
+      address: '123 Main Street, New York, NY 10001',
+      latitude: 40.7128,
+      longitude: -74.006,
+    },
+    {
+      id: 2,
+      name: 'XYZ Business',
+      email: 'info@xyz.com',
+      phone: '(555) 987-6543',
+      address: '456 Oak Avenue, Los Angeles, CA 90001',
+      latitude: 34.0522,
+      longitude: -118.2437,
+    },
   ]);
 
   const [invoices, setInvoices] = useState([
-    { id: 1, clientId: 1, number: 'INV-001', amount: 15000, date: '2025-10-01', dueDate: '2025-10-15', status: 'paid', items: [{ desc: 'Consulting Services', qty: 1, price: 15000 }] },
-    { id: 2, clientId: 2, number: 'INV-002', amount: 8500, date: '2025-10-05', dueDate: '2025-10-20', status: 'pending', items: [{ desc: 'Web Development', qty: 1, price: 8500 }] },
-    { id: 3, clientId: 1, number: 'INV-003', amount: 12000, date: '2025-10-10', dueDate: '2025-10-25', status: 'overdue', items: [{ desc: 'Maintenance Services', qty: 1, price: 12000 }] }
+    {
+      id: 1,
+      clientId: 1,
+      number: 'INV-001',
+      amount: 15000,
+      date: '2025-10-01',
+      dueDate: '2025-10-15',
+      status: 'paid',
+      items: [{ desc: 'Consulting Services', qty: 1, price: 15000 }],
+    },
+    {
+      id: 2,
+      clientId: 2,
+      number: 'INV-002',
+      amount: 8500,
+      date: '2025-10-05',
+      dueDate: '2025-10-20',
+      status: 'pending',
+      items: [{ desc: 'Web Development', qty: 1, price: 8500 }],
+    },
+    {
+      id: 3,
+      clientId: 1,
+      number: 'INV-003',
+      amount: 12000,
+      date: '2025-10-10',
+      dueDate: '2025-10-25',
+      status: 'overdue',
+      items: [{ desc: 'Maintenance Services', qty: 1, price: 12000 }],
+    },
   ]);
 
   const [payments, setPayments] = useState([
-    { id: 1, invoiceId: 1, amount: 15000, date: '2025-10-14', method: 'Wire Transfer' }
+    { id: 1, invoiceId: 1, amount: 15000, date: '2025-10-14', method: 'Wire Transfer' },
   ]);
 
   const [formData, setFormData] = useState({});
   const [showMapModal, setShowMapModal] = useState(false);
-  const [mapCenter, setMapCenter] = useState([34.0522, -118.2437]); // Los Angeles default
+  const [mapCenter, setMapCenter] = useState([34.0522, -118.2437]); // Los Angeles
   const [selectedLocation, setSelectedLocation] = useState(null);
 
-  // Calculate statistics
+  // Estadísticas
   const stats = {
-    totalRevenue: invoices.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.amount, 0),
-    pendingAmount: invoices.filter(i => i.status === 'pending').reduce((sum, i) => sum + i.amount, 0),
-    overdueAmount: invoices.filter(i => i.status === 'overdue').reduce((sum, i) => sum + i.amount, 0),
+    totalRevenue: invoices
+      .filter((i) => i.status === 'paid')
+      .reduce((sum, i) => sum + i.amount, 0),
+    pendingAmount: invoices
+      .filter((i) => i.status === 'pending')
+      .reduce((sum, i) => sum + i.amount, 0),
+    overdueAmount: invoices
+      .filter((i) => i.status === 'overdue')
+      .reduce((sum, i) => sum + i.amount, 0),
     totalClients: clients.length,
-    totalInvoices: invoices.length
+    totalInvoices: invoices.length,
   };
 
   const getClientName = (clientId) => {
-    const client = clients.find(c => c.id === clientId);
+    const client = clients.find((c) => c.id === clientId);
     return client ? client.name : 'Unknown Client';
   };
 
@@ -51,68 +150,98 @@ const InvoiceManagerApp = () => {
   };
 
   const openMapPicker = () => {
+    // Si ya hay una ubicación guardada, centrar el mapa ahí
+    if (formData.latitude && formData.longitude) {
+      setMapCenter([formData.latitude, formData.longitude]);
+      setSelectedLocation({ lat: formData.latitude, lng: formData.longitude });
+    }
     setShowMapModal(true);
   };
 
   const handleMapClick = (lat, lng) => {
-    setSelectedLocation({ lat, lng });
-    // Reverse geocoding to get address
+    const newLocation = { lat, lng };
+    setSelectedLocation(newLocation);
+    setMapCenter([lat, lng]);
+
+    // Reverse geocoding
     fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`)
-      .then(res => res.json())
-      .then(data => {
-        const address = data.display_name;
-        setFormData({...formData, 
-          address: address,
+      .then((res) => res.json())
+      .then((data) => {
+        const address = data.display_name || `Lat: ${lat.toFixed(4)}, Lng: ${lng.toFixed(4)}`;
+        setFormData((prev) => ({
+          ...prev,
+          address,
           latitude: lat,
-          longitude: lng
-        });
+          longitude: lng,
+        }));
       })
-      .catch(err => console.error('Geocoding error:', err));
+      .catch((err) => console.error('Geocoding error:', err));
   };
 
   const searchLocation = (query) => {
-    if (!query) return;
+    if (!query.trim()) return;
     fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=us`)
-      .then(res => res.json())
-      .then(data => {
+      .then((res) => res.json())
+      .then((data) => {
         if (data && data.length > 0) {
           const { lat, lon } = data[0];
-          setMapCenter([parseFloat(lat), parseFloat(lon)]);
-          handleMapClick(parseFloat(lat), parseFloat(lon));
+          const newLat = parseFloat(lat);
+          const newLng = parseFloat(lon);
+          setMapCenter([newLat, newLng]);
+          handleMapClick(newLat, newLng);
         }
       })
-      .catch(err => console.error('Search error:', err));
+      .catch((err) => console.error('Search error:', err));
   };
 
   const handleSubmit = () => {
     if (modalType === 'client') {
-      setClients([...clients, { 
-        ...formData, 
-        id: Date.now(),
-        latitude: selectedLocation?.lat || null,
-        longitude: selectedLocation?.lng || null
-      }]);
-    } else if (modalType === 'invoice') {
-      const newInvoice = {
+      const newClient = {
         ...formData,
         id: Date.now(),
+        latitude: selectedLocation?.lat || formData.latitude || null,
+        longitude: selectedLocation?.lng || formData.longitude || null,
+      };
+      setClients([...clients, newClient]);
+    } else if (modalType === 'invoice') {
+      const amount = formData.items
+        ? formData.items.reduce((sum, item) => sum + item.qty * item.price, 0)
+        : formData.amount || 0;
+
+      const newInvoice = {
+        id: Date.now(),
         number: `INV-${String(invoices.length + 1).padStart(3, '0')}`,
+        clientId: parseInt(formData.clientId),
+        date: formData.date,
+        dueDate: formData.dueDate,
+        amount,
         status: 'pending',
-        amount: formData.items?.reduce((sum, item) => sum + (item.qty * item.price), 0) || 0
+        items: formData.items || [{ desc: formData.description, qty: 1, price: amount }],
       };
       setInvoices([...invoices, newInvoice]);
     } else if (modalType === 'payment') {
-      setPayments([...payments, { ...formData, id: Date.now() }]);
-      setInvoices(invoices.map(inv => 
-        inv.id === parseInt(formData.invoiceId) ? { ...inv, status: 'paid' } : inv
-      ));
+      const newPayment = {
+        id: Date.now(),
+        invoiceId: parseInt(formData.invoiceId),
+        amount: parseFloat(formData.amount),
+        date: formData.date,
+        method: formData.method,
+      };
+      setPayments([...payments, newPayment]);
+      setInvoices(
+        invoices.map((inv) =>
+          inv.id === parseInt(formData.invoiceId) ? { ...inv, status: 'paid' } : inv
+        )
+      );
     }
     setShowModal(false);
+    setSelectedLocation(null);
   };
 
-  const filteredInvoices = invoices.filter(inv => {
-    const matchesSearch = getClientName(inv.clientId).toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         inv.number.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredInvoices = invoices.filter((inv) => {
+    const matchesSearch =
+      getClientName(inv.clientId).toLowerCase().includes(searchTerm.toLowerCase()) ||
+      inv.number.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesFilter = filterStatus === 'all' || inv.status === filterStatus;
     return matchesSearch && matchesFilter;
   });
@@ -121,17 +250,17 @@ const InvoiceManagerApp = () => {
     const styles = {
       paid: 'bg-green-100 text-green-800',
       pending: 'bg-yellow-100 text-yellow-800',
-      overdue: 'bg-red-100 text-red-800'
+      overdue: 'bg-red-100 text-red-800',
     };
     const icons = {
       paid: <Check className="w-3 h-3" />,
       pending: <Clock className="w-3 h-3" />,
-      overdue: <AlertCircle className="w-3 h-3" />
+      overdue: <AlertCircle className="w-3 h-3" />,
     };
     const labels = {
       paid: 'Paid',
       pending: 'Pending',
-      overdue: 'Overdue'
+      overdue: 'Overdue',
     };
     return (
       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${styles[status]}`}>
@@ -158,7 +287,7 @@ const InvoiceManagerApp = () => {
             { id: 'dashboard', label: 'Dashboard', icon: TrendingUp },
             { id: 'invoices', label: 'Invoices', icon: FileText },
             { id: 'clients', label: 'Clients', icon: Users },
-            { id: 'payments', label: 'Payments', icon: DollarSign }
+            { id: 'payments', label: 'Payments', icon: DollarSign },
           ].map(({ id, label, icon: Icon }) => (
             <button
               key={id}
@@ -181,7 +310,6 @@ const InvoiceManagerApp = () => {
         {currentView === 'dashboard' && (
           <div className="space-y-6">
             <h2 className="text-2xl font-bold text-gray-900">Overview</h2>
-            
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
                 <div className="flex items-center justify-between">
@@ -227,7 +355,7 @@ const InvoiceManagerApp = () => {
             <div className="bg-white rounded-lg shadow p-6">
               <h3 className="text-lg font-semibold mb-4">Recent Invoices</h3>
               <div className="space-y-3">
-                {invoices.slice(-5).reverse().map(inv => (
+                {invoices.slice(-5).reverse().map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                     <div>
                       <p className="font-medium">{inv.number}</p>
@@ -295,14 +423,16 @@ const InvoiceManagerApp = () => {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {filteredInvoices.map(inv => (
+                    {filteredInvoices.map((inv) => (
                       <tr key={inv.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium">{inv.number}</td>
                         <td className="px-6 py-4">{getClientName(inv.clientId)}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{inv.date}</td>
                         <td className="px-6 py-4 text-sm text-gray-600">{inv.dueDate}</td>
                         <td className="px-6 py-4 font-semibold">${inv.amount.toLocaleString()}</td>
-                        <td className="px-6 py-4"><StatusBadge status={inv.status} /></td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={inv.status} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -327,7 +457,7 @@ const InvoiceManagerApp = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clients.map(client => (
+              {clients.map((client) => (
                 <div key={client.id} className="bg-white rounded-lg shadow p-6 hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between mb-4">
                     <div className="bg-blue-100 p-3 rounded-full">
@@ -379,8 +509,8 @@ const InvoiceManagerApp = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {payments.map(payment => {
-                    const invoice = invoices.find(i => i.id === payment.invoiceId);
+                  {payments.map((payment) => {
+                    const invoice = invoices.find((i) => i.id === payment.invoiceId);
                     return (
                       <tr key={payment.id} className="hover:bg-gray-50">
                         <td className="px-6 py-4 font-medium">{invoice?.number}</td>
@@ -414,7 +544,7 @@ const InvoiceManagerApp = () => {
                   type="text"
                   placeholder="Search address in USA..."
                   className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                  onKeyPress={(e) => {
+                  onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       searchLocation(e.target.value);
                     }
@@ -422,7 +552,7 @@ const InvoiceManagerApp = () => {
                 />
                 <button
                   onClick={(e) => {
-                    const input = e.target.previousSibling;
+                    const input = e.target.previousElementSibling;
                     searchLocation(input.value);
                   }}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -430,12 +560,14 @@ const InvoiceManagerApp = () => {
                   <Search className="w-5 h-5" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 mt-2">Click on the map to select a location or search for an address</p>
+              <p className="text-xs text-gray-500 mt-2">
+                Click on the map to select a location or search for an address
+              </p>
             </div>
 
             <div className="flex-1 relative" style={{ minHeight: '400px' }}>
-              <MapComponent 
-                center={mapCenter} 
+              <MapComponent
+                center={mapCenter}
                 selectedLocation={selectedLocation}
                 onMapClick={handleMapClick}
               />
@@ -449,7 +581,9 @@ const InvoiceManagerApp = () => {
                 Cancel
               </button>
               <button
-                onClick={() => setShowMapModal(false)}
+                onClick={() => {
+                  setShowMapModal(false);
+                }}
                 disabled={!selectedLocation}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
@@ -460,7 +594,7 @@ const InvoiceManagerApp = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Form Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -481,28 +615,30 @@ const InvoiceManagerApp = () => {
                   <input
                     placeholder="Client name"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
+                    value={formData.name || ''}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   />
                   <input
                     placeholder="Email"
                     type="email"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, email: e.target.value})}
+                    value={formData.email || ''}
+                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   />
                   <input
                     placeholder="Phone"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                    value={formData.phone || ''}
+                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                   />
-                  
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-gray-700">Location</label>
                     <div className="flex gap-2">
                       <input
-                        placeholder="Address or search location"
+                        placeholder="Address (auto-filled from map)"
                         value={formData.address || ''}
-                        className="flex-1 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                        onChange={(e) => setFormData({...formData, address: e.target.value})}
+                        readOnly
+                        className="flex-1 px-4 py-2 border rounded-lg bg-gray-50"
                       />
                       <button
                         type="button"
@@ -525,33 +661,40 @@ const InvoiceManagerApp = () => {
                 <>
                   <select
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, clientId: parseInt(e.target.value)})}
+                    value={formData.clientId || ''}
+                    onChange={(e) => setFormData({ ...formData, clientId: e.target.value })}
                   >
                     <option value="">Select client</option>
-                    {clients.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    {clients.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
                   </select>
                   <input
                     type="date"
-                    placeholder="Date"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
+                    value={formData.date || ''}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   />
                   <input
                     type="date"
-                    placeholder="Due date"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, dueDate: e.target.value})}
+                    value={formData.dueDate || ''}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                   />
                   <input
                     placeholder="Service description"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, items: [{desc: e.target.value, qty: 1, price: formData.amount || 0}]})}
+                    value={formData.description || ''}
+                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   />
                   <input
                     type="number"
                     placeholder="Amount"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})}
+                    value={formData.amount || ''}
+                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
                   />
                 </>
               )}
@@ -560,28 +703,35 @@ const InvoiceManagerApp = () => {
                 <>
                   <select
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, invoiceId: e.target.value})}
+                    value={formData.invoiceId || ''}
+                    onChange={(e) => setFormData({ ...formData, invoiceId: e.target.value })}
                   >
                     <option value="">Select invoice</option>
-                    {invoices.filter(i => i.status !== 'paid').map(inv => (
-                      <option key={inv.id} value={inv.id}>{inv.number} - ${inv.amount.toLocaleString()}</option>
-                    ))}
+                    {invoices
+                      .filter((i) => i.status !== 'paid')
+                      .map((inv) => (
+                        <option key={inv.id} value={inv.id}>
+                          {inv.number} - ${inv.amount.toLocaleString()}
+                        </option>
+                      ))}
                   </select>
                   <input
                     type="number"
                     placeholder="Amount paid"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, amount: parseFloat(e.target.value)})}
+                    value={formData.amount || ''}
+                    onChange={(e) => setFormData({ ...formData, amount: parseFloat(e.target.value) })}
                   />
                   <input
                     type="date"
-                    placeholder="Payment date"
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, date: e.target.value})}
+                    value={formData.date || ''}
+                    onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                   />
                   <select
                     className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
-                    onChange={(e) => setFormData({...formData, method: e.target.value})}
+                    value={formData.method || ''}
+                    onChange={(e) => setFormData({ ...formData, method: e.target.value })}
                   >
                     <option value="">Payment method</option>
                     <option value="Wire Transfer">Wire Transfer</option>
